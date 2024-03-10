@@ -1,0 +1,31 @@
+name: 'Signed Tag'
+description: 'GitHub Action to create signed tag from within a GitHub Action workflow'
+author: 'qoomon'
+branding:
+  icon: git-commit
+  color: blue
+
+inputs:
+  token:
+    description: 'A GitHub access token'
+    required: true
+    default: ${{ github.token }}
+  remoteName:
+    description: 'The remote name to create the commit on'
+    required: true
+    default: 'origin'
+  name:
+    description: 'The tag name'
+    required: true
+  message:
+    description: 'The tag message'
+  recreate:
+    description: 'If true, an annotated tag will be recreated, instead of creating a new one'
+
+outputs:
+  tag:
+    description: 'The SHA of the tag'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
