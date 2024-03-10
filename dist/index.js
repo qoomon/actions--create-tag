@@ -40420,92 +40420,74 @@ async function getRemoteUrl(remoteName = 'origin') {
  * @returns unmerged files
  */
 async function getUnmergedFiles() {
-    return await actions_exec('git diff --name-only --diff-filter=U')
+    return await exec('git diff --name-only --diff-filter=U')
         .then(({ stdout }) => stdout.toString().split('\n').filter(Boolean));
 }
 /**
- * Get the commit details.
- * @param ref - ref to get the details for.
- * @returns commit details
+ * Get the tag details.
+ * @param name - a tag name.
+ * @returns tag details
  */
-async function getCommitDetails(ref = 'HEAD') {
+async function getTagDetails(name) {
     const result = {};
-    const fieldsSeparator = '---';
-    const showOutputLines = await actions_exec('git show --raw --cc --diff-filter=AMD', [
+    result.name = name;
+    const tagOutputLines = await actions_exec('git tag -l', [
+        name,
         '--format=' + [
-            'commit:%H%n' +
-                'tree:%T%n' +
-                'parent:%P%n' +
-                'author.name:%aN%n' +
-                'author.email:%aE%n' +
-                'author.date:%ai%n' +
-                'committer.name:%cN%n' +
-                'committer.email:%cE%n' +
-                'committer.date:%ci%n' +
-                'subject:%s%n' +
-                'body:%n' +
-                '%b%n' +
-                fieldsSeparator,
-        ].join(),
-        ref,
+            'type:%(objecttype)',
+            'object:%(objectname)',
+            'tagger.name=%(taggername)',
+            'tagger.email=%(taggeremail)',
+            'tagger.date=%(taggerdate)',
+            'subject:%(subject)',
+            'body:',
+            '%(body)',
+        ].join('\n'),
     ])
         .then(({ stdout }) => stdout.toString().split('\n'));
-    const eofBodyIndicatorIndex = showOutputLines.lastIndexOf(fieldsSeparator);
-    const showOutputFieldLines = showOutputLines.slice(0, eofBodyIndicatorIndex);
-    const showOutputFileLines = showOutputLines.slice(eofBodyIndicatorIndex + 1, -1);
-    const showFieldLinesIterator = showOutputFieldLines.values();
-    for (const line of showFieldLinesIterator) {
+    const tagFieldLinesIterator = tagOutputLines.values();
+    for (const line of tagFieldLinesIterator) {
         const lineMatch = line.match(/^(?<lineValueName>[^:]+):(?<lineValue>.*)$/);
         if (!lineMatch)
             throw new Error(`Unexpected field line: ${line}`);
         const { lineValueName, lineValue } = lineMatch.groups;
         switch (lineValueName) {
-            case 'commit':
+            case 'type':
+                result.type = lineValue;
+                break;
+            case 'object':
                 result.sha = lineValue;
                 break;
-            case 'tree':
-                result.tree = lineValue;
+            case 'tagger.name':
+                result.tagger = result.tagger ?? {};
+                result.tagger.name = lineValue;
                 break;
-            case 'parent':
-                result.parents = lineValue.split(' ');
+            case 'tagger.email':
+                result.tagger = result.tagger ?? {};
+                result.tagger.email = lineValue;
                 break;
-            case 'author.name':
-                result.author = result.author ?? {};
-                result.author.name = lineValue;
-                break;
-            case 'author.email':
-                result.author = result.author ?? {};
-                result.author.email = lineValue;
-                break;
-            case 'author.date':
-                result.author = result.author ?? {};
-                result.author.date = new Date(lineValue);
-                break;
-            case 'committer.name':
-                result.committer = result.committer ?? {};
-                result.committer.name = lineValue;
-                break;
-            case 'committer.email':
-                result.committer = result.committer ?? {};
-                result.committer.email = lineValue;
-                break;
-            case 'committer.date':
-                result.committer = result.committer ?? {};
-                result.committer.date = new Date(lineValue);
+            case 'tagger.date':
+                result.tagger = result.tagger ?? {};
+                result.tagger.date = new Date(lineValue);
                 break;
             case 'subject':
                 result.subject = lineValue;
                 break;
             case 'body':
                 // read all remaining lines
-                result.body = [...showFieldLinesIterator].join('\n');
+                result.body = [...tagFieldLinesIterator].join('\n');
                 break;
             default:
                 throw new Error(`Unexpected field: ${lineValueName}`);
         }
     }
-    result.files = showOutputFileLines
-        .map(parseRawFileDiffLine);
+    if (result.type === 'tag') {
+        result.targetSha = await actions_exec('git rev-list -n 1', [name])
+            .then(({ stdout }) => stdout.toString() || undefined);
+    }
+    else {
+        result.targetSha = result.sha;
+    }
     return result;
 }
 /**
@@ -40514,7 +40496,7 @@ async function getCommitDetails(ref = 'HEAD') {
  */
 async function getCacheDetails() {
     const result = {};
-    const diffOutputFileLines = await actions_exec('git diff --cached --raw --cc --diff-filter=AMD')
+    const diffOutputFileLines = await exec('git diff --cached --raw --cc --diff-filter=AMD')
         .then(({ stdout }) => stdout.toString().split('\n').filter(Boolean));
     result.files = diffOutputFileLines
         .map(parseRawFileDiffLine);
@@ -40543,7 +40525,7 @@ function parseRawFileDiffLine(line) {
  */
 async function readFile(path, ref) {
     const object = ref ? `${ref}:${path}` : await getCachedObjectSha(path);
-    return await actions_exec('git cat-file blob', [object], { silent: true })
+    return await exec('git cat-file blob', [object], { silent: true })
         .then(({ stdout }) => stdout);
 }
 /**
@@ -40552,7 +40534,7 @@ async function readFile(path, ref) {
  * @returns sha of the cached object
  */
 async function getCachedObjectSha(path) {
-    return await actions_exec('git ls-files --cached --stage', [path], { silent: false })
+    return await exec('git ls-files --cached --stage', [path], { silent: false })
         // example output: 100644 5492f6d1d15ac444387259da81d19b74b3f2d4d6 0  dummy.txt
         .then(({ stdout }) => stdout.toString().split(/\s/)[1]);
 }
@@ -40566,65 +40548,32 @@ async function getCachedObjectSha(path) {
  * @param args - commit details and file content reader
  * @returns created commit
  */
-async function createCommit(octokit, repository, args) {
-    console.debug('creating file blobs ...');
-    const commitTreeBlobs = await Promise.all(args.files.map(async ({ path, mode, status, loadContent }) => {
-        switch (status) {
-            case 'A':
-            case 'M': {
-                console.debug(' ', path, '...');
-                const content = await loadContent();
-                const blob = await octokit.rest.git.createBlob({
-                    ...repository,
-                    content: content.toString('base64'),
-                    encoding: 'base64',
-                }).then(({ data }) => data);
-                console.debug(' ', path, '>', blob.sha);
-                return {
-                    path,
-                    mode,
-                    sha: blob.sha,
-                    type: 'blob',
-                };
-            }
-            case 'D':
-                return {
-                    path,
-                    mode: '100644', // TODO check if needed
-                    sha: null,
-                    type: 'blob',
-                };
-            default:
-                throw new Error(`Unexpected file status: ${status}`);
-        }
-    }));
-    console.debug('creating commit tree ...');
-    const commitTree = await octokit.rest.git.createTree({
-        ...repository,
-        base_tree: args.parents[0],
-        tree: commitTreeBlobs,
-    }).then(({ data }) => data);
-    console.debug('commit tree', '>', commitTree.sha);
+async function createTag(octokit, repository, args) {
     console.debug('creating commit ...');
-    const commit = await octokit.rest.git.createCommit({
+    const tag = await octokit.rest.git.createTag({
         ...repository,
-        parents: args.parents,
-        tree: commitTree.sha,
-        message: args.subject + '\n\n' + args.body,
-        // DO NOT set author or committer otherwise commit will not be verified
+        type: 'commit',
+        object: args.sha,
+        tag: args.tag,
+        message: args.message,
+        // DO NOT set tagger otherwise tag will not be verified
         // author: {
-        //   name: localCommit.author.name,
-        //   email: localCommit.author.email,
-        //   date: localCommit.author.date.toISOString(),
+        //   name: localTag.tagger.name,
+        //   email: localTag.tagger.email,
+        //   date: localTag.tagger.date.toISOString(),
         // },
         // If used with GitHub Actions GITHUB_TOKEN following values are used
-        // author.name:     github-actions[bot]
-        // author.email:    41898282+github-actions[bot]@users.noreply.github.com
-        // committer.name:  GitHub
-        // committer.email: noreply@github.com
+        // tagger.name:     github-actions[bot]
+        // tagger.email:    41898282+github-actions[bot]@users.noreply.github.com
     }).then(({ data }) => data);
-    console.debug('commit', '>', commit.sha);
-    return commit;
+    console.debug('tag', '>', tag.sha);
+    // TODO probably remove
+    // await octokit.rest.git.createRef({
+    //   ...repository,
+    //   ref: `refs/tags/${tag.tag}`,
+    //   sha: tag.sha,
+    // }).then(({data}) => data)
+    return tag;
 }
 /**
  * Get repository owner and name from url.
@@ -40653,28 +40602,26 @@ function parseRepositoryFromUrl(url) {
 const input = {
     token: getInput('token', { required: true }),
     remoteName: getInput('remoteName', { required: true }),
+    name: getInput('name', { required: true }),
     message: getInput('message', { required: false }),
-    recommitHEAD: getInput('recommitHEAD', { required: false })?.toLowerCase() === 'true' || false,
+    recreate: getInput('recreate', { required: false })?.toLowerCase() === 'true' || false,
     push: getInput('push', { required: false })?.toLowerCase() === 'true' || false,
 };
 const octokit = github.getOctokit(input.token);
 run(async () => {
     const repositoryRemoteUrl = await getRemoteUrl();
     const repository = parseRepositoryFromUrl(repositoryRemoteUrl);
-    let createCommitArgs;
-    if (input.recommitHEAD) {
-        const headCommit = await getCommitDetails('HEAD');
-        const messageLines = input.message?.split('\n');
-        createCommitArgs = {
-            subject: messageLines?.[0].trim() ??
-                headCommit.subject,
-            body: messageLines?.slice(1).join('\n').trim() ??
-                headCommit.body,
-            parents: headCommit.parents,
-            files: headCommit.files.map((file) => ({
-                ...file,
-                loadContent: async () => readFile(file.path, headCommit.sha),
-            })),
+    let createTagArgs;
+    if (input.recreate) {
+        const recentTag = await getTagDetails(input.name);
+        if (recentTag.type !== 'tag') {
+            core.setFailed(`${input.name} is not an annotated tag`);
+            return;
+        }
+        createTagArgs = {
+            tag: input.name,
+            message: input.message ?? [recentTag.subject, recentTag.body].join('\n'),
+            sha: recentTag.targetSha,
         };
     }
     else {
@@ -40682,38 +40629,19 @@ run(async () => {
             core.setFailed('input message is required');
             return;
         }
-        const unmergedFiles = await getUnmergedFiles();
-        if (unmergedFiles.length > 0) {
-            core.setFailed('Committing is not possible because you have unmerged files.');
-            console.error('Unmerged files:', unmergedFiles);
-            return;
-        }
         const headCommitSha = await getRev('HEAD');
-        const messageLines = input.message.split('\n');
-        const cache = await getCacheDetails();
-        createCommitArgs = {
-            subject: messageLines[0].trim(),
-            body: messageLines.slice(1).join('\n').trim(),
-            parents: [headCommitSha],
-            files: cache.files.map((file) => ({
-                ...file,
-                loadContent: async () => readFile(file.path),
-            })),
+        createTagArgs = {
+            tag: input.name,
+            message: input.message,
+            sha: headCommitSha,
         };
     }
-    core.info('Creating commit ...');
-    if (createCommitArgs.files.length === 0) {
-        core.info('nothing to commit, working tree clean');
-        return;
-    }
-    const commit = await createCommit(octokit, repository, createCommitArgs);
-    core.setOutput('commit', commit.sha);
+    core.info('Creating tag ...');
+    const tag = await createTag(octokit, repository, createTagArgs);
+    core.setOutput('tag', tag.tag);
     core.info('Syncing local repository ...');
-    await actions_exec(`git fetch ${input.remoteName} ${commit.sha}`);
-    await actions_exec(`git reset --soft ${commit.sha}`);
-    if (input.push) {
-        await actions_exec(`git push ${input.remoteName}`);
-    }
+    await actions_exec(`git fetch ${input.remoteName} ${tag.sha}`);
+    await actions_exec(`git tag -f ${tag.tag} ${createTagArgs.sha}`);
 });
 
 })();
