@@ -12,15 +12,16 @@ export async function createTag(octokit: ReturnType<typeof github.getOctokit>, r
   owner: string,
   repo: string
 }, args: CreateTagArgs) {
-  console.debug('creating commit ...')
+  console.debug('creating tag ...')
   const tag = await octokit.rest.git.createTag({
     ...repository,
-    type: 'commit',
-    object: args.sha,
     tag: args.tag,
-    message: args.message,
-    // DO NOT set tagger otherwise tag will not be verified
-    // author: {
+    message: messageOf(args.subject, args.body),
+    object: args.sha,
+    type: 'commit',
+
+    // DO NOT set tagger otherwise tag will not be signed
+    // tagger: {
     //   name: localTag.tagger.name,
     //   email: localTag.tagger.email,
     //   date: localTag.tagger.date.toISOString(),
@@ -29,18 +30,23 @@ export async function createTag(octokit: ReturnType<typeof github.getOctokit>, r
     // If used with GitHub Actions GITHUB_TOKEN following values are used
     // tagger.name:     github-actions[bot]
     // tagger.email:    41898282+github-actions[bot]@users.noreply.github.com
-
   }).then(({data}) => data)
   console.debug('tag', '>', tag.sha)
 
-  // TODO probably remove
-  // await octokit.rest.git.createRef({
-  //   ...repository,
-  //   ref: `refs/tags/${tag.tag}`,
-  //   sha: tag.sha,
-  // }).then(({data}) => data)
-
   return tag
+}
+
+/**
+ * Creates a commit message from subject and body.
+ * @param subject - commit subject
+ * @param body - commit body
+ * @returns commit message
+ */
+function messageOf(subject: string, body?: string) {
+  if (body) {
+    return subject + '\n\n' + body
+  }
+  return subject
 }
 
 /**
@@ -61,6 +67,7 @@ export function parseRepositoryFromUrl(url: string) {
 
 export type CreateTagArgs = {
   tag: string
-  message: string
+  subject: string
+  body: string
   sha: string,
 }

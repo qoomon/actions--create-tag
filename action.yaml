@@ -10,6 +10,10 @@ inputs:
     description: 'A GitHub access token'
     required: true
     default: ${{ github.token }}
+  working-directory:
+    description: 'The working directory'
+    required: true
+    default: '.'
   remoteName:
     description: 'The remote name to create the commit on'
     required: true
@@ -17,10 +21,6 @@ inputs:
   name:
     description: 'The tag name'
     required: true
-  message:
-    description: 'The tag message'
-  recreate:
-    description: 'If true, an annotated tag will be recreated, instead of creating a new one'
 
 outputs:
   tag:

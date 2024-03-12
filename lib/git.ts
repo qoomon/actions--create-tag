@@ -52,16 +52,19 @@ export async function getTagDetails(name: string): Promise<TagDetails> {
     '--format=' + [
       'type:%(objecttype)',
       'object:%(objectname)',
-      'tagger.name=%(taggername)',
-      'tagger.email=%(taggeremail)',
-      'tagger.date=%(taggerdate)',
+      'tagger.name:%(taggername)',
+      'tagger.email:%(taggeremail)',
+      'tagger.date:%(taggerdate)',
       'subject:%(subject)',
       'body:',
       '%(body)',
     ].join('\n'),
   ])
-      .then(({stdout}) => stdout.toString().split('\n'))
+      .then(({stdout}) => stdout.toString().split('\n').slice(0, -1))
 
+  if (tagOutputLines.length === 0) {
+    throw new Error(`Unknown tag : ${name}`)
+  }
   const tagFieldLinesIterator = tagOutputLines.values()
   for (const line of tagFieldLinesIterator) {
     const lineMatch = line.match(/^(?<lineValueName>[^:]+):(?<lineValue>.*)$/)
@@ -100,10 +103,11 @@ export async function getTagDetails(name: string): Promise<TagDetails> {
 
   if (result.type === 'tag') {
     result.targetSha = await exec('git rev-list -n 1', [name])
-        .then(({stdout}) => stdout.toString() || undefined)
+        .then(({stdout}) => stdout.toString().trim() || undefined)
   } else {
     result.targetSha = result.sha
   }
+
   return result
 }
 

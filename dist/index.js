@@ -40294,6 +40294,23 @@ exports.visitAsync = visitAsync;
 /******/ }
 /******/ 
 /************************************************************************/
+/******/ /* webpack/runtime/define property getters */
+/******/ (() => {
+/******/ 	// define getter functions for harmony exports
+/******/ 	__nccwpck_require__.d = (exports, definition) => {
+/******/ 		for(var key in definition) {
+/******/ 			if(__nccwpck_require__.o(definition, key) && !__nccwpck_require__.o(exports, key)) {
+/******/ 				Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
+/******/ 			}
+/******/ 		}
+/******/ 	};
+/******/ })();
+/******/ 
+/******/ /* webpack/runtime/hasOwnProperty shorthand */
+/******/ (() => {
+/******/ 	__nccwpck_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
+/******/ })();
+/******/ 
 /******/ /* webpack/runtime/compat */
 /******/ 
 /******/ if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = new URL('.', import.meta.url).pathname.slice(import.meta.url.match(/^file:\/\/\/\w:/) ? 1 : 0, -1) + "/";
@@ -40302,6 +40319,11 @@ exports.visitAsync = visitAsync;
 var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
+
+// EXPORTS
+__nccwpck_require__.d(__webpack_exports__, {
+  "a": () => (/* binding */ action)
+});
 
 // EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
 var core = __nccwpck_require__(2186);
@@ -40403,7 +40425,7 @@ async function getCurrentBranch() {
  * @returns sha
  */
 async function getRev(ref = 'HEAD') {
-    return await actions_exec('git rev-parse', [ref])
+    return await exec('git rev-parse', [ref])
         .then(({ stdout }) => stdout.toString().trim());
 }
 /**
@@ -40436,15 +40458,18 @@ async function getTagDetails(name) {
         '--format=' + [
             'type:%(objecttype)',
             'object:%(objectname)',
-            'tagger.name=%(taggername)',
-            'tagger.email=%(taggeremail)',
-            'tagger.date=%(taggerdate)',
+            'tagger.name:%(taggername)',
+            'tagger.email:%(taggeremail)',
+            'tagger.date:%(taggerdate)',
             'subject:%(subject)',
             'body:',
             '%(body)',
         ].join('\n'),
     ])
-        .then(({ stdout }) => stdout.toString().split('\n'));
+        .then(({ stdout }) => stdout.toString().split('\n').slice(0, -1));
+    if (tagOutputLines.length === 0) {
+        throw new Error(`Unknown tag : ${name}`);
+    }
     const tagFieldLinesIterator = tagOutputLines.values();
     for (const line of tagFieldLinesIterator) {
         const lineMatch = line.match(/^(?<lineValueName>[^:]+):(?<lineValue>.*)$/);
@@ -40483,7 +40508,7 @@ async function getTagDetails(name) {
     }
     if (result.type === 'tag') {
         result.targetSha = await actions_exec('git rev-list -n 1', [name])
-            .then(({ stdout }) => stdout.toString() || undefined);
+            .then(({ stdout }) => stdout.toString().trim() || undefined);
     }
     else {
         result.targetSha = result.sha;
@@ -40549,15 +40574,15 @@ async function getCachedObjectSha(path) {
  * @returns created commit
  */
 async function createTag(octokit, repository, args) {
-    console.debug('creating commit ...');
+    console.debug('creating tag ...');
     const tag = await octokit.rest.git.createTag({
         ...repository,
         type: 'commit',
-        object: args.sha,
         tag: args.tag,
-        message: args.message,
-        // DO NOT set tagger otherwise tag will not be verified
-        // author: {
+        message: args.subject + (args.body ? '\n\n' + args.body : ''),
+        object: args.sha,
+        // DO NOT set tagger otherwise tag will not be signed
+        // tagger: {
         //   name: localTag.tagger.name,
         //   email: localTag.tagger.email,
         //   date: localTag.tagger.date.toISOString(),
@@ -40567,12 +40592,6 @@ async function createTag(octokit, repository, args) {
         // tagger.email:    41898282+github-actions[bot]@users.noreply.github.com
     }).then(({ data }) => data);
     console.debug('tag', '>', tag.sha);
-    // TODO probably remove
-    // await octokit.rest.git.createRef({
-    //   ...repository,
-    //   ref: `refs/tags/${tag.tag}`,
-    //   sha: tag.sha,
-    // }).then(({data}) => data)
     return tag;
 }
 /**
@@ -40592,6 +40611,8 @@ function parseRepositoryFromUrl(url) {
     };
 }
 
+// EXTERNAL MODULE: external "url"
+var external_url_ = __nccwpck_require__(7310);
 ;// CONCATENATED MODULE: ./index.ts
 
 
@@ -40599,50 +40620,40 @@ function parseRepositoryFromUrl(url) {
 // see https://github.com/actions/toolkit for more github actions libraries
 
 
-const input = {
-    token: getInput('token', { required: true }),
-    remoteName: getInput('remoteName', { required: true }),
-    name: getInput('name', { required: true }),
-    message: getInput('message', { required: false }),
-    recreate: getInput('recreate', { required: false })?.toLowerCase() === 'true' || false,
-    push: getInput('push', { required: false })?.toLowerCase() === 'true' || false,
-};
-const octokit = github.getOctokit(input.token);
-run(async () => {
+
+const action = () => run(async () => {
+    const input = {
+        token: getInput('token', { required: true }),
+        workingDirectory: getInput('working-directory') ?? '.',
+        remoteName: getInput('remoteName') ?? 'origin',
+        name: getInput('name', { required: true }),
+    };
+    process.chdir(input.workingDirectory);
     const repositoryRemoteUrl = await getRemoteUrl();
     const repository = parseRepositoryFromUrl(repositoryRemoteUrl);
-    let createTagArgs;
-    if (input.recreate) {
-        const recentTag = await getTagDetails(input.name);
-        if (recentTag.type !== 'tag') {
-            core.setFailed(`${input.name} is not an annotated tag`);
-            return;
-        }
-        createTagArgs = {
-            tag: input.name,
-            message: input.message ?? [recentTag.subject, recentTag.body].join('\n'),
-            sha: recentTag.targetSha,
-        };
+    const recentTag = await getTagDetails(input.name);
+    if (recentTag.type !== 'tag') {
+        core.setFailed(`Only annotated tags can be signed`);
+        return;
     }
-    else {
-        if (!input.message) {
-            core.setFailed('input message is required');
-            return;
-        }
-        const headCommitSha = await getRev('HEAD');
-        createTagArgs = {
-            tag: input.name,
-            message: input.message,
-            sha: headCommitSha,
-        };
-    }
-    core.info('Creating tag ...');
-    const tag = await createTag(octokit, repository, createTagArgs);
-    core.setOutput('tag', tag.tag);
+    const octokit = github.getOctokit(input.token);
+    const signedTag = await createTag(octokit, repository, {
+        tag: recentTag.name,
+        subject: recentTag.subject,
+        body: recentTag.body,
+        sha: recentTag.targetSha,
+    });
     core.info('Syncing local repository ...');
-    await actions_exec(`git fetch ${input.remoteName} ${tag.sha}`);
-    await actions_exec(`git tag -f ${tag.tag} ${createTagArgs.sha}`);
+    await actions_exec(`git fetch-pack`, [repositoryRemoteUrl, signedTag.sha]);
+    await actions_exec(`git tag -f ${recentTag.name} ${signedTag.sha}`);
+    core.setOutput('tag', signedTag.sha);
 });
+// Execute the action, if running as main module
+if (process.argv[1] === (0,external_url_.fileURLToPath)(import.meta.url)) {
+    action();
+}
 
 })();
 
+var __webpack_exports__action = __webpack_exports__.a;
+export { __webpack_exports__action as action };

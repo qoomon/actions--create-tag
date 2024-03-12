@@ -1,65 +1,46 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import {exec, getInput, run} from './lib/actions'
+import {exec, getInput, run} from './lib/actions.js'
 // see https://github.com/actions/toolkit for more github actions libraries
-import {
-  getRemoteUrl,
-  getRev,
-  getTagDetails,
-} from './lib/git'
-import {createTag, CreateTagArgs, parseRepositoryFromUrl} from './lib/github.js'
+import {getRemoteUrl, getTagDetails} from './lib/git.js'
+import {createTag, parseRepositoryFromUrl} from './lib/github.js'
+import {fileURLToPath} from 'url'
 
-const input = {
-  token: getInput('token', {required: true})!,
-  remoteName: getInput('remoteName', {required: true})!,
-  name: getInput('name', {required: true})!,
-  message: getInput('message', {required: false}),
-  recreate: getInput('recreate', {required: false})?.toLowerCase() === 'true' || false,
-  push: getInput('push', {required: false})?.toLowerCase() === 'true' || false,
-}
+export const action = () => run(async () => {
+  const input = {
+    token: getInput('token', {required: true})!,
+    workingDirectory: getInput('working-directory') ?? '.',
+    remoteName: getInput('remoteName') ?? 'origin',
+    name: getInput('name', {required: true})!,
+  }
 
-const octokit = github.getOctokit(input.token)
+  process.chdir(input.workingDirectory)
 
-run(async () => {
   const repositoryRemoteUrl = await getRemoteUrl()
   const repository = parseRepositoryFromUrl(repositoryRemoteUrl)
 
-  let createTagArgs: CreateTagArgs
-
-  if (input.recreate) {
-    const recentTag = await getTagDetails(input.name)
-    if (recentTag.type !== 'tag') {
-      core.setFailed(`${input.name} is not an annotated tag`)
-      return
-    }
-
-    createTagArgs = {
-      tag: input.name,
-      message: input.message ?? [recentTag.subject, recentTag.body].join('\n'),
-      sha: recentTag.targetSha!,
-    }
-  } else {
-    if (!input.message) {
-      core.setFailed('input message is required')
-      return
-    }
-
-    const headCommitSha = await getRev('HEAD')
-
-    createTagArgs = {
-      tag: input.name,
-      message: input.message,
-      sha: headCommitSha,
-    }
+  const recentTag = await getTagDetails(input.name)
+  if (recentTag.type !== 'tag') {
+    core.setFailed(`Only annotated tags can be signed`)
+    return
   }
 
-  core.info('Creating tag ...')
-
-  const tag = await createTag(octokit, repository, createTagArgs)
-  core.setOutput('tag', tag.tag)
+  const octokit = github.getOctokit(input.token)
+  const signedTag = await createTag(octokit, repository, {
+    tag: recentTag.name,
+    subject: recentTag.subject,
+    body: recentTag.body,
+    sha: recentTag.targetSha!,
+  })
 
   core.info('Syncing local repository ...')
-  await exec(`git fetch ${input.remoteName} ${tag.sha}`)
-  await exec(`git tag -f ${tag.tag} ${createTagArgs.sha}`)
+  await exec(`git fetch-pack`, [repositoryRemoteUrl, signedTag.sha])
+  await exec(`git tag -f ${recentTag.name} ${signedTag.sha}`)
+
+  core.setOutput('tag', signedTag.sha)
 })
 
+// Execute the action, if running as main module
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  action()
+}
