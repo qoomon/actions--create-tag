@@ -40577,12 +40577,30 @@ async function createTag(octokit, repository, args) {
     console.debug('creating tag ...');
     const tag = await octokit.rest.git.createTag({
         ...repository,
+<<<<<<< HEAD
+||||||| parent of 13963c7 (refactor)
+        type: 'commit',
+        object: args.sha,
+=======
+        type: 'commit',
+>>>>>>> 13963c7 (refactor)
         tag: args.tag,
+<<<<<<< HEAD
         message: messageOf(args.subject, args.body),
         object: args.sha,
         type: 'commit',
         // DO NOT set tagger otherwise tag will not be signed
         // tagger: {
+||||||| parent of 13963c7 (refactor)
+        message: args.message,
+        // DO NOT set tagger otherwise tag will not be verified
+        // author: {
+=======
+        message: args.subject + (args.body ? '\n\n' + args.body : ''),
+        object: args.sha,
+        // DO NOT set tagger otherwise tag will not be signed
+        // tagger: {
+>>>>>>> 13963c7 (refactor)
         //   name: localTag.tagger.name,
         //   email: localTag.tagger.email,
         //   date: localTag.tagger.date.toISOString(),

@@ -14,7 +14,10 @@ export const action = () => run(async () => {
     name: getInput('name', {required: true})!,
   }
 
-  process.chdir(input.workingDirectory)
+  // if (!input.token.startsWith('ghs_')) {
+  //   core.setFailed(`Only GitHub app tokens (ghs_***) can be used for signing tags.`)
+  //   return
+  // }
 
   const repositoryRemoteUrl = await getRemoteUrl()
   const repository = parseRepositoryFromUrl(repositoryRemoteUrl)
@@ -26,6 +29,7 @@ export const action = () => run(async () => {
   }
 
   const octokit = github.getOctokit(input.token)
+
   const signedTag = await createTag(octokit, repository, {
     tag: recentTag.name,
     subject: recentTag.subject,
@@ -33,11 +37,20 @@ export const action = () => run(async () => {
     sha: recentTag.targetSha!,
   })
 
-  core.info('Syncing local repository ...')
-  await exec(`git fetch-pack`, [repositoryRemoteUrl, signedTag.sha])
-  await exec(`git tag -f ${recentTag.name} ${signedTag.sha}`)
+  const release = await octokit.rest.repos.createRelease({
+    ...repository,
+    tag_name: recentTag.name,
+    body: recentTag.body,
+    target_commitish: recentTag.targetSha,
+  }).then(({data}) => data)
+  await octokit.rest.repos.deleteRelease({
+    ...repository,
+    release_id: release.id,
+  })
 
-  core.setOutput('tag', signedTag.sha)
+  core.info('Syncing local repository ...')
+  await exec(`git fetch`, [input.remoteName, signedTag.sha])
+  await exec(`git tag -f ${recentTag.name} ${signedTag.sha}`)
 })
 
 // Execute the action, if running as main module

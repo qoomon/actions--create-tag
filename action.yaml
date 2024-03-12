@@ -1,5 +1,5 @@
 name: 'Signed Tag'
-description: 'GitHub Action to create signed tag from within a GitHub Action workflow'
+description: 'GitHub Action to replace given tag with a signed tag by using a GitHub App access tokens and the GitHub API'
 author: 'qoomon'
 branding:
   icon: git-commit
@@ -15,16 +15,12 @@ inputs:
     required: true
     default: '.'
   remoteName:
-    description: 'The remote name to create the commit on'
+    description: 'The remote name to create the tag at.'
     required: true
     default: 'origin'
   name:
     description: 'The tag name'
     required: true
-
-outputs:
-  tag:
-    description: 'The SHA of the tag'
 
 runs:
   using: 'node20'
