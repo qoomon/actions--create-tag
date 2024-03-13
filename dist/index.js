@@ -40577,10 +40577,10 @@ async function createTag(octokit, repository, args) {
     console.debug('creating tag ...');
     const tag = await octokit.rest.git.createTag({
         ...repository,
-        type: 'commit',
         tag: args.tag,
-        message: args.subject + (args.body ? '\n\n' + args.body : ''),
+        message: messageOf(args.subject, args.body),
         object: args.sha,
+        type: 'commit',
         // DO NOT set tagger otherwise tag will not be signed
         // tagger: {
         //   name: localTag.tagger.name,
@@ -40593,6 +40593,18 @@ async function createTag(octokit, repository, args) {
     }).then(({ data }) => data);
     console.debug('tag', '>', tag.sha);
     return tag;
+}
+/**
+ * Creates a commit message from subject and body.
+ * @param subject - commit subject
+ * @param body - commit body
+ * @returns commit message
+ */
+function messageOf(subject, body) {
+    if (body) {
+        return subject + '\n\n' + body;
+    }
+    return subject;
 }
 /**
  * Get repository owner and name from url.
