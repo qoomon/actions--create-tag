@@ -1,5 +1,5 @@
-name: 'Signed Tag'
-description: 'GitHub Action to replace given tag with a signed tag by using a GitHub App access tokens and the GitHub API'
+name: 'Create Tag'
+description: 'Create Tag'
 author: 'qoomon'
 branding:
   icon: git-commit

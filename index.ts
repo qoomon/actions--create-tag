@@ -37,17 +37,6 @@ export const action = () => run(async () => {
     sha: recentTag.targetSha!,
   })
 
-  const release = await octokit.rest.repos.createRelease({
-    ...repository,
-    tag_name: recentTag.name,
-    body: recentTag.body,
-    target_commitish: recentTag.targetSha,
-  }).then(({data}) => data)
-  await octokit.rest.repos.deleteRelease({
-    ...repository,
-    release_id: release.id,
-  })
-
   core.info('Syncing local repository ...')
   await exec(`git fetch`, [input.remoteName, signedTag.sha])
   await exec(`git tag -f ${recentTag.name} ${signedTag.sha}`)

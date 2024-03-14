@@ -1,6 +1,11 @@
-# tag
+# Create Tag
 
-Tag made using this action are automatically signed by GitHub and will be marked as verified in the user interface.
+This action will **replace given tag** with a tag created via GitHub api equivalent to given tag,
+however with new tagger according to token identity.
+
+~~Tags are signed if a GitHub App token (`ghs_***`) is used and will be marked as `verified` in the GitHub web interface.~~
+Although commits get signed if created via GitHub api, unfortunately tags are not signed by GitHub API. [As of March 2024]
+
 
 ### Example
 
@@ -16,7 +21,7 @@ jobs:
           git tag -am "${TAG_NAME}" "${TAG_NAME}"
 
       - name: Sign tag ${{ env.TAG_NAME }}
-        uses: qoomon/actions--sign-tag@v1
+        uses: qoomon/actions--create-tag@v1
         with:
           name: ${{ env.TAG_NAME }}
 

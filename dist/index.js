@@ -40577,30 +40577,12 @@ async function createTag(octokit, repository, args) {
     console.debug('creating tag ...');
     const tag = await octokit.rest.git.createTag({
         ...repository,
-<<<<<<< HEAD
-||||||| parent of 13963c7 (refactor)
-        type: 'commit',
-        object: args.sha,
-=======
-        type: 'commit',
->>>>>>> 13963c7 (refactor)
         tag: args.tag,
-<<<<<<< HEAD
         message: messageOf(args.subject, args.body),
         object: args.sha,
         type: 'commit',
         // DO NOT set tagger otherwise tag will not be signed
         // tagger: {
-||||||| parent of 13963c7 (refactor)
-        message: args.message,
-        // DO NOT set tagger otherwise tag will not be verified
-        // author: {
-=======
-        message: args.subject + (args.body ? '\n\n' + args.body : ''),
-        object: args.sha,
-        // DO NOT set tagger otherwise tag will not be signed
-        // tagger: {
->>>>>>> 13963c7 (refactor)
         //   name: localTag.tagger.name,
         //   email: localTag.tagger.email,
         //   date: localTag.tagger.date.toISOString(),
@@ -40658,7 +40640,10 @@ const action = () => run(async () => {
         remoteName: getInput('remoteName') ?? 'origin',
         name: getInput('name', { required: true }),
     };
-    process.chdir(input.workingDirectory);
+    // if (!input.token.startsWith('ghs_')) {
+    //   core.setFailed(`Only GitHub app tokens (ghs_***) can be used for signing tags.`)
+    //   return
+    // }
     const repositoryRemoteUrl = await getRemoteUrl();
     const repository = parseRepositoryFromUrl(repositoryRemoteUrl);
     const recentTag = await getTagDetails(input.name);
@@ -40673,10 +40658,19 @@ const action = () => run(async () => {
         body: recentTag.body,
         sha: recentTag.targetSha,
     });
+    const release = await octokit.rest.repos.createRelease({
+        ...repository,
+        tag_name: recentTag.name,
+        body: recentTag.body,
+        target_commitish: recentTag.targetSha,
+    }).then(({ data }) => data);
+    await octokit.rest.repos.deleteRelease({
+        ...repository,
+        release_id: release.id,
+    });
     core.info('Syncing local repository ...');
-    await actions_exec(`git fetch-pack`, [repositoryRemoteUrl, signedTag.sha]);
+    await actions_exec(`git fetch`, [input.remoteName, signedTag.sha]);
     await actions_exec(`git tag -f ${recentTag.name} ${signedTag.sha}`);
-    core.setOutput('tag', signedTag.sha);
 });
 // Execute the action, if running as main module
 if (process.argv[1] === (0,external_url_.fileURLToPath)(import.meta.url)) {
