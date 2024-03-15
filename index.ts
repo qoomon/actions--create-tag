@@ -14,11 +14,6 @@ export const action = () => run(async () => {
     name: getInput('name', {required: true})!,
   }
 
-  // if (!input.token.startsWith('ghs_')) {
-  //   core.setFailed(`Only GitHub app tokens (ghs_***) can be used for signing tags.`)
-  //   return
-  // }
-
   const repositoryRemoteUrl = await getRemoteUrl()
   const repository = parseRepositoryFromUrl(repositoryRemoteUrl)
 
