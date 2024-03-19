@@ -40639,24 +40639,36 @@ const action = () => run(async () => {
         workingDirectory: getInput('working-directory') ?? '.',
         remoteName: getInput('remoteName') ?? 'origin',
         name: getInput('name', { required: true }),
+        message: getInput('message') ?? getInput('name', { required: true }),
     };
-    const repositoryRemoteUrl = await getRemoteUrl();
-    const repository = parseRepositoryFromUrl(repositoryRemoteUrl);
-    const recentTag = await getTagDetails(input.name);
-    if (recentTag.type !== 'tag') {
-        core.setFailed(`Only annotated tags can be signed`);
+    process.chdir(input.workingDirectory);
+    const tagArgs = [input.name,
+        '--annotate',
+        '--message', input.message,
+    ];
+    const tagResult = await actions_exec('git', [
+        '-c', 'user.name=github-actions[bot]',
+        '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
+        'tag', ...tagArgs,
+    ]);
+    if (tagResult.status !== 0) {
+        core.info(tagResult.stderr.toString());
+        core.setOutput('status', tagResult.status);
         return;
     }
     const octokit = github.getOctokit(input.token);
-    const signedTag = await createTag(octokit, repository, {
+    const recentTag = await getTagDetails(input.name);
+    const repositoryRemoteUrl = await getRemoteUrl();
+    const repository = parseRepositoryFromUrl(repositoryRemoteUrl);
+    const githubTag = await createTag(octokit, repository, {
         tag: recentTag.name,
         subject: recentTag.subject,
         body: recentTag.body,
         sha: recentTag.targetSha,
     });
     core.info('Syncing local repository ...');
-    await actions_exec(`git fetch`, [input.remoteName, signedTag.sha]);
-    await actions_exec(`git tag -f ${recentTag.name} ${signedTag.sha}`);
+    await actions_exec(`git fetch`, [input.remoteName, githubTag.sha]);
+    await actions_exec(`git tag -f ${recentTag.name} ${githubTag.sha}`);
 });
 // Execute the action, if running as main module
 if (process.argv[1] === (0,external_url_.fileURLToPath)(import.meta.url)) {
