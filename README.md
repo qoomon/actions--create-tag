@@ -18,8 +18,7 @@ jobs:
           TAG_NAME=v1.0.0
           echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
 
-      - name: Sign tag ${{ env.TAG_NAME }}
-        uses: qoomon/actions--create-tag@v1
+      - uses: qoomon/actions--create-tag@v1
         with:
           name: ${{ env.TAG_NAME }}
 
