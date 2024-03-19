@@ -3,7 +3,7 @@
 This action will create a new tag via GitHub API, tagger is related to token identity.
 ~~Tags are signed if a GitHub App token (`ghs_***`) is used and will be marked as `verified` in the GitHub web interface.~~
 Although commits get signed, if created via GitHub api, unfortunately **tags are not signed by GitHub API**. [As of March 2024]
-The only way to create signed tags through GitHub API is to create a release (see example below).
+The only way to create signed tags through GitHub API is to create a release (see [release example below](#create-a-tag-through-a-release-example)).
 
 
 ### Example
