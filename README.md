@@ -63,6 +63,8 @@ jobs:
       - run: |
           TAG_NAME=v1.0.0
           gh release create "${TAG_NAME}" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
 ```
 
 ## Development
