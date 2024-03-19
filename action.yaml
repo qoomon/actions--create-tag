@@ -6,6 +6,12 @@ branding:
   color: blue
 
 inputs:
+  name:
+    description: 'The tag name'
+    required: true
+  message:
+    description: 'The annotated tag message'
+
   token:
     description: 'A GitHub access token'
     required: true
@@ -18,9 +24,6 @@ inputs:
     description: 'The remote name to create the tag at.'
     required: true
     default: 'origin'
-  name:
-    description: 'The tag name'
-    required: true
 
 runs:
   using: 'node20'

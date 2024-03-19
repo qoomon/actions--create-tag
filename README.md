@@ -1,10 +1,8 @@
 # Create Tag
 
-This action will **replace given tag** with a tag created via GitHub api equivalent to given tag,
-however with new tagger according to token identity.
-
+This action will create a new tag via GitHub API, tagger is related to token identity.
 ~~Tags are signed if a GitHub App token (`ghs_***`) is used and will be marked as `verified` in the GitHub web interface.~~
-Although commits get signed if created via GitHub api, unfortunately tags are not signed by GitHub API. [As of March 2024]
+Although commits get signed, if created via GitHub api, unfortunately **tags are not signed by GitHub API**. [As of March 2024]
 
 
 ### Example
@@ -17,8 +15,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: qoomon/actions--setup-git-user@v1
       - run: |
-          TAG_NAME=v1.0.0 && echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
-          git tag -am "${TAG_NAME}" "${TAG_NAME}"
+          TAG_NAME=v1.0.0
+          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
 
       - name: Sign tag ${{ env.TAG_NAME }}
         uses: qoomon/actions--create-tag@v1
@@ -32,6 +30,12 @@ jobs:
 
 ```yaml
 inputs:
+  name:
+    description: 'The annotated tag name'
+    required: true
+  message:
+    description: 'The annotated tag message'
+
   token:
     description: 'A GitHub access token'
     required: true
@@ -44,9 +48,6 @@ inputs:
     description: 'The remote name to create the tag at.'
     required: true
     default: 'origin'
-  name:
-    description: 'The tag name'
-    required: true
 ```
 
 ## Development
