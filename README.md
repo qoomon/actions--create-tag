@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: qoomon/actions--setup-git-user@v1
       - run: |
           TAG_NAME=v1.0.0
           echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
