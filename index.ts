@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import {exec, getInput, run} from './lib/actions.js'
 // see https://github.com/actions/toolkit for more github actions libraries
+import {bot, exec, getInput, run} from './lib/actions.js'
 import {getRemoteUrl, getTagDetails} from './lib/git.js'
 import {createTag, parseRepositoryFromUrl} from './lib/github.js'
 import {fileURLToPath} from 'url'
@@ -23,8 +23,8 @@ export const action = () => run(async () => {
     '--message', input.message,
   ]
   const tagResult = await exec('git', [
-    '-c', 'user.name=github-actions[bot]',
-    '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
+    '-c', `user.name=${bot.name}`,
+    '-c', `user.email=${bot.email}`,
     'tag', ...tagArgs,
   ])
   if (tagResult.status !== 0) {
