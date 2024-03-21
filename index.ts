@@ -17,7 +17,8 @@ export const action = () => run(async () => {
 
   process.chdir(input.workingDirectory)
 
-  const tagArgs = [input.name,
+  const tagArgs = [
+    input.name,
     '--annotate',
     '--message', input.message,
   ]

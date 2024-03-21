@@ -6,6 +6,14 @@ import * as _exec from '@actions/exec'
 import {ExecOptions} from '@actions/exec'
 
 /**
+ * GitHub Actions bot user
+ */
+export const bot = {
+  name: 'github-actions[bot]',
+  email: '41898282+github-actions[bot]@users.noreply.github.com',
+} as const
+
+/**
  * Run action and catch errors
  * @param action - action to run
  * @returns void
