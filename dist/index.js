@@ -40635,8 +40635,8 @@ var external_url_ = __nccwpck_require__(7310);
 ;// CONCATENATED MODULE: ./index.ts
 
 
-
 // see https://github.com/actions/toolkit for more github actions libraries
+
 
 
 
@@ -40655,8 +40655,8 @@ const action = () => run(async () => {
         '--message', input.message,
     ];
     const tagResult = await actions_exec('git', [
-        '-c', 'user.name=github-actions[bot]',
-        '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
+        '-c', `user.name=${bot.name}`,
+        '-c', `user.email=${bot.email}`,
         'tag', ...tagArgs,
     ]);
     if (tagResult.status !== 0) {
