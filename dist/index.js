@@ -40341,6 +40341,13 @@ var lib_exec = __nccwpck_require__(1514);
 
 
 /**
+ * GitHub Actions bot user
+ */
+const bot = {
+    name: 'github-actions[bot]',
+    email: '41898282+github-actions[bot]@users.noreply.github.com',
+};
+/**
  * Run action and catch errors
  * @param action - action to run
  * @returns void
@@ -40642,7 +40649,8 @@ const action = () => run(async () => {
         message: getInput('message') ?? getInput('name', { required: true }),
     };
     process.chdir(input.workingDirectory);
-    const tagArgs = [input.name,
+    const tagArgs = [
+        input.name,
         '--annotate',
         '--message', input.message,
     ];
