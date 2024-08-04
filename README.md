@@ -1,4 +1,4 @@
-# Create Tag
+# Create Tag &nbsp; [![Actions](https://img.shields.io/badge/qoomon-GitHub%20Actions-blue)](https://github.com/qoomon/actions)
 
 This action will create a new tag via GitHub API, tagger is related to token identity.
 ~~Tags are signed if a GitHub App token (`ghs_***`) is used and will be marked as `verified` in the GitHub web interface.~~
