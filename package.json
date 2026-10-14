@@ -13,7 +13,7 @@
     "@actions/github": "^9.1.1",
     "@actions/http-client": "^4.0.1",
     "@octokit/graphql-schema": "^14.58.0",
-    "shell-quote": "^1.9.0",
+    "shell-quote": "^1.11.0",
     "ts-node": "^10.9.2",
     "yaml": "^2.8.3",
     "zod": "^3.22.4"
