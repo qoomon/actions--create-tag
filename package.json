@@ -16,7 +16,7 @@
     "shell-quote": "^1.11.0",
     "ts-node": "^10.9.2",
     "yaml": "^2.8.3",
-    "zod": "^3.22.4"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@eslint/js": "^8.56.0",
