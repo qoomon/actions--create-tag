@@ -1,4 +1,6 @@
 import * as github from '@actions/github'
+import type {RestEndpointMethodTypes} from '@octokit/plugin-rest-endpoint-methods'
+type CreateTagResponse = RestEndpointMethodTypes['git']['createTag']['response']
 
 /**
  * Create a commit authored and committed by octokit token identity.
@@ -30,7 +32,7 @@ export async function createTag(octokit: ReturnType<typeof github.getOctokit>, r
     // If used with GitHub Actions GITHUB_TOKEN following values are used
     // tagger.name:     github-actions[bot]
     // tagger.email:    41898282+github-actions[bot]@users.noreply.github.com
-  }).then(({data}) => data)
+  }).then(({data}: CreateTagResponse) => data)
   console.debug('tag', '>', tag.sha)
 
   return tag
